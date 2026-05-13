@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "./BigBossUtility/IUtilityContract.sol";
 import "./NftAirdroperUtility/INFTAirdroper.sol";
-import "./TokenAirdroperUtility/IERC20Airdroper.sol";
+import "./ERC20Airdroper/IERC20Airdroper.sol";
 
 
 contract DeployManager is Ownable {
