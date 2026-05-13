@@ -27,6 +27,8 @@ contract BigBoss is IUtilityContract {
         return true;
     }
 
+    //------------------SmartContract functions---------------------------------------
+
     function doSmth() external view returns (uint256, address) {
         return (number, bigBoss);
     }
@@ -34,6 +36,10 @@ contract BigBoss is IUtilityContract {
     //frontend as usually 
     function getInitData(uint256 _number, address _bigBoss) external pure returns (bytes memory) {
         return abi.encode(_number, _bigBoss);
+    } 
+
+    function getInitData2(address _bigBoss, uint256 _number) external pure returns (bytes memory) {
+        return abi.encode(_bigBoss, _number);
     } 
 
 }

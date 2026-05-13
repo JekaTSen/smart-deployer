@@ -3,7 +3,10 @@ pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
-import "./IUtilityContract.sol";
+import "./BigBossUtility/IUtilityContract.sol";
+import "./NftAirdroperUtility/INFTAirdroper.sol";
+import "./TokenAirdroperUtility/IERC20Airdroper.sol";
+
 
 contract DeployManager is Ownable {
     event NewContractAdded(
