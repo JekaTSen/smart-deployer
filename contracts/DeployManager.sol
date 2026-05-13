@@ -35,6 +35,7 @@ contract DeployManager is Ownable {
     error ContractDoesNotRegistered();
     error InitializationFailed();
     error ContractDoesNotRegistred();
+    error TranferFailed();
 
     constructor() Ownable(msg.sender) {}
 
@@ -64,7 +65,9 @@ contract DeployManager is Ownable {
             InitializationFailed()
         ); //initialization
 
-        payable(owner()).transfer(msg.value); //transfer money
+        //payable(owner()).transfer(msg.value); //transfer money
+        (bool success, ) = payable(owner()).call{value : msg.value}("");
+        require(success, TranferFailed());
 
         deployedContracts[msg.sender].push(clone); //updateInformation
 
