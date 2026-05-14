@@ -3,9 +3,9 @@ pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./IERC20Airdroper.sol";
+import "../IUtilityContract.sol";
 
-contract ERC20Airdroper is IERC20Airdroper, Ownable {
+contract ERC20Airdroper is IUtilityContract, Ownable {
 
     constructor() Ownable(msg.sender) {}
 
