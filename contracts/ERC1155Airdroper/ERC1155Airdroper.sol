@@ -3,8 +3,9 @@ pragma solidity ^0.8.29;
 
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../IUtilityContract.sol";
 
-contract ERC1155Airdroper is Ownable {
+contract ERC1155Airdroper is IUtilityContract, Ownable {
 
     constructor() Ownable(msg.sender) {}
 
