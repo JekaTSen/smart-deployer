@@ -10,37 +10,48 @@ contract Vesting is IUtilityContract, Ownable {
     constructor() Ownable (msg.sender) {}
 
     IERC20 public token;
-    uint256 public totalAmount;
-    
-    address public beneficiary; 
-    //mapping(address => uint256) public beneficiaries; //3. Vesting smart contract can be used by multiple people.  MerkleTree or Mapping (both is good)
-
-
-    uint256 public startTime;
-    uint256 public cliff;
-    uint256 public duration;
-
-    uint256 public claimed;
-    uint256 public cooldown;
-
-    bool public vestingStarted;
+    uint256 public allocatedTokens;
 
     bool public initialized;
 
 
+    struct VestingInfo {
+        uint256 totalAmount;
+        uint256 startTime;
+        uint256 cliff;
+        uint256 duration;
+        uint256 claimed;
+        uint256 lastClaimTime;
+        uint256 claimCooldown;
+        uint256 minClaimAmount;
+    }
+
+    mapping (address => VestingInfo) public vestings; 
+
 
     error AlreadyInitialized();
-    error ClaimerIsNotBeneficiary();
     error CliffNotReached();
     error NothingToClaim();
     error TranfserFailed();
-    error Cooldown();
-    error MinClaimAmount();
+    error BelowMinimalClaimAmount();
     error NotEnoughTokensOnContract();
-    error vestingWasntStartedYet();
+    error VestingAlreadyExist();
+    error AmountCantBeZero();
+    error StartTimeShouldBeFuture();
+    error DurationCantBeZero();
+    error CliffCantBeLongerThanDuration();
+    error CooldownCantBeLongerThenDuration();
+    error InvalidBeneficiary();
+    error VestingNotFound();
+    error CooldownNotPassed();
+    error CantClaimMoreThanTotalAmount();
+    error WithdrawTransferFailed();
+    error NothingToWithdraw();
 
-    event Claimed(address beneficiary, uint256 amount, uint256 timestamp);
+    event Claimed(address beneficiary, uint256 amount, uint256 creationTime);
     event VestingStarted(uint256 timestamp);
+    event VestingCreated(address beneficiary, uint256 amount, uint256 timestamp);
+    event TokensWithdraw(address to, uint256 amount);
 
     modifier notInitialized() {
         require(!initialized, AlreadyInitialized());
@@ -48,63 +59,98 @@ contract Vesting is IUtilityContract, Ownable {
     }
     
 
+    function startVesting(
+        address _beneficiary,
+        uint256 _totalAmount, 
+        uint256 _startTime, 
+        uint256 _cliff, 
+        uint256 _duration, 
+        uint256 _claimCooldown, 
+        uint256 _minClaimAmount
+        ) external onlyOwner {
+        require(token.balanceOf(address(this)) - allocatedTokens  >= _totalAmount, NotEnoughTokensOnContract());
+        require(_totalAmount > 0, AmountCantBeZero());
+        require(vestings[_beneficiary].totalAmount == 0 || vestings[_beneficiary].totalAmount == vestings[_beneficiary].claimed, VestingAlreadyExist());
+        require(_startTime > block.timestamp, StartTimeShouldBeFuture());
+        require(_duration > 0, DurationCantBeZero());
+        require(_cliff <= _duration, CliffCantBeLongerThanDuration());
+        require(_claimCooldown < _duration, CooldownCantBeLongerThenDuration());
+        require(_beneficiary != address(0), InvalidBeneficiary());
+
+        vestings[_beneficiary] = VestingInfo ({
+            totalAmount : _totalAmount,
+            startTime : _startTime,
+            cliff : _cliff,
+            duration : _duration,
+            claimed : 0,
+            lastClaimTime : 0,
+            claimCooldown : _claimCooldown,
+            minClaimAmount : _minClaimAmount
+        });
 
 
-    function startVesting(uint256 _cliff, uint256 _duration) external onlyOwner {
-        require(token.balanceOf(address(this)) >= totalAmount, NotEnoughTokensOnContract());
-        
-        cliff = _cliff;
-        duration = _duration;
-        startTime = block.timestamp;
-
-        //return true;
-        vestingStarted = true;
-
-        emit VestingStarted(block.timestamp);
+        allocatedTokens += _totalAmount;
+        emit VestingCreated(_beneficiary, _totalAmount, block.timestamp);
     }
 
 
     function claim() public {
-        require(vestingStarted, vestingWasntStartedYet());
-        require(block.timestamp > startTime + cliff, CliffNotReached());
-        require(cooldown < block.timestamp, Cooldown()); //cooldown if u claimed, have to wait 1 day
-        require(msg.sender == beneficiary, ClaimerIsNotBeneficiary());
+        VestingInfo storage vesting = vestings[msg.sender];
+            
+        require(block.timestamp > vesting.startTime + vesting.cliff, CliffNotReached());
+        require(vesting.totalAmount > 0, VestingNotFound());
 
-        uint256 claimable = claimableAmount();
+        require(block.timestamp >= vesting.lastClaimTime + vesting.claimCooldown, CooldownNotPassed());
+
+        uint256 claimable = claimableAmount(msg.sender);
         require(claimable > 0, NothingToClaim());
-        require(claimable > 100, MinClaimAmount()); //min 100
+        require(claimable > vesting.minClaimAmount, BelowMinimalClaimAmount()); 
+        require(claimable + vesting.claimed <= vesting.totalAmount, CantClaimMoreThanTotalAmount());
 
-        claimed += claimable;
-        (bool success) = token.transfer(beneficiary, claimable);
-        require(success, TranfserFailed());
 
-        cooldown = block.timestamp + 1 days;
+        vesting.claimed += claimable;
+        vesting.lastClaimTime = block.timestamp;
+        allocatedTokens -= claimable;
+        require(token.transfer(msg.sender, claimable), TranfserFailed());
+
         emit Claimed(msg.sender, claimable, block.timestamp);
     }
 
 
-    function vestedAmount() public view returns (uint256) {
-        if(block.timestamp < startTime + cliff) return 0;
+    function withdrawUnallocated(address _to) external onlyOwner {
+        uint256 available = token.balanceOf(address(this)) - allocatedTokens;
+        require(available > 0, NothingToWithdraw());
+        require(token.transfer(_to, available), WithdrawTransferFailed());
 
-        uint256 passedTime = block.timestamp - (startTime + cliff);
-        return (totalAmount * passedTime) / duration;
+        emit TokensWithdraw(_to, available);
+    }
+
+    function vestedAmount(address _claimer) public view returns (uint256) {
+        VestingInfo storage vesting = vestings[_claimer];
+        if(block.timestamp < vesting.startTime + vesting.cliff) return 0;
+
+        uint256 passedTime = block.timestamp - (vesting.startTime + vesting.cliff);
+        if(passedTime > vesting.duration){
+            passedTime = vesting.duration;
+        }
+        return (vesting.totalAmount * passedTime) / vesting.duration;
     }
 
 
-    function claimableAmount() public view returns (uint256) { 
-        if(block.timestamp < startTime + cliff) return 0;
+    function claimableAmount(address _claimer) public view returns (uint256) { 
+        VestingInfo storage vesting = vestings[_claimer];
+        if(block.timestamp < vesting.startTime + vesting.cliff) return 0;
         
-        return vestedAmount() - claimed;
+        return vestedAmount(_claimer) - vesting.claimed;
     }
 
 
 
     function initialize(bytes memory _initData) external notInitialized returns (bool) {
 
-        (address _token, uint256 _totalAmount, address _owner) = abi.decode(_initData, (address, uint256, address));
+        (address _token, address _owner) = abi.decode(_initData, (address, address));
 
         token = IERC20(_token);
-        totalAmount = _totalAmount;
         Ownable.transferOwnership(_owner);
 
         initialized = true;
@@ -112,8 +158,8 @@ contract Vesting is IUtilityContract, Ownable {
     }
 
 
-    function getInitData(address _token, uint256 _totalAmount, address _owner) external pure returns (bytes memory){
-        return abi.encode(_token, _totalAmount, _owner);
+    function getInitData(address _token, address _owner) external pure returns (bytes memory){
+        return abi.encode(_token, _owner);
     }
 
 
