@@ -4,7 +4,6 @@ pragma solidity ^0.8.29;
 import "./IUtilityContract.sol";
 
 contract BigBoss is IUtilityContract {
-
     error AlreadyInitialized();
 
     uint256 public number;
@@ -16,7 +15,6 @@ contract BigBoss is IUtilityContract {
         require(!initialized, AlreadyInitialized());
         _;
     }
-
 
     function initialize(bytes memory _initData) external notInitialized returns (bool) {
         (uint256 _number, address _bigBoss) = abi.decode(_initData, (uint256, address));
@@ -33,13 +31,12 @@ contract BigBoss is IUtilityContract {
         return (number, bigBoss);
     }
 
-    //frontend as usually 
+    //frontend as usually
     function getInitData(uint256 _number, address _bigBoss) external pure returns (bytes memory) {
         return abi.encode(_number, _bigBoss);
-    } 
+    }
 
     function getInitData2(address _bigBoss, uint256 _number) external pure returns (bytes memory) {
         return abi.encode(_bigBoss, _number);
-    } 
-
+    }
 }

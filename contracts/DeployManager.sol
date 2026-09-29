@@ -8,31 +8,11 @@ import "./ERC20Airdroper/ERC20Airdroper.sol";
 import "./ERC721Aridroper/ERC721Airdroper.sol";
 import "./ERC1155Airdroper/ERC1155Airdroper.sol";
 
-
 contract DeployManager is Ownable {
-    event NewContractAdded(
-        address _contractAddress,
-        uint256 _fee,
-        bool _isActive,
-        uint256 timestamp
-    );
-    event ContractFeeUpdated(
-        address _contractAddress,
-        uint256 _oldFee,
-        uint256 _newFee,
-        uint256 timestamp
-    );
-    event ContractStatusUpdated(
-        address _contractAddress,
-        bool isActive,
-        uint256 timestamp
-    );
-    event NewDeployment(
-        address _deployer,
-        address _contractAddress,
-        uint256 _fee,
-        uint256 timestamp
-    );
+    event NewContractAdded(address _contractAddress, uint256 _fee, bool _isActive, uint256 timestamp);
+    event ContractFeeUpdated(address _contractAddress, uint256 _oldFee, uint256 _newFee, uint256 timestamp);
+    event ContractStatusUpdated(address _contractAddress, bool isActive, uint256 timestamp);
+    event NewDeployment(address _deployer, address _contractAddress, uint256 _fee, uint256 timestamp);
 
     error ContractNotActive();
     error NotEnoughFunds();
@@ -52,10 +32,7 @@ contract DeployManager is Ownable {
     mapping(address => address[]) public deployedContracts;
     mapping(address => ContractInfo) public contractsData;
 
-    function deploy(
-        address _utilityContract,
-        bytes calldata _initData
-    ) external payable returns (address) {
+    function deploy(address _utilityContract, bytes calldata _initData) external payable returns (address) {
         ContractInfo memory info = contractsData[_utilityContract];
 
         require(info.isActive, ContractNotActive());
@@ -64,13 +41,10 @@ contract DeployManager is Ownable {
 
         //deploy new contract
         address clone = Clones.clone(_utilityContract);
-        require(
-            IUtilityContract(clone).initialize(_initData),
-            InitializationFailed()
-        ); //initialization
+        require(IUtilityContract(clone).initialize(_initData), InitializationFailed()); //initialization
 
         //payable(owner()).transfer(msg.value); //transfer money
-        (bool success, ) = payable(owner()).call{value : msg.value}("");
+        (bool success,) = payable(owner()).call{value: msg.value}("");
         require(success, TranferFailed());
 
         deployedContracts[msg.sender].push(clone); //updateInformation
@@ -80,39 +54,18 @@ contract DeployManager is Ownable {
         return clone;
     }
 
-    function addNewContract(
-        address _contractAddress,
-        uint256 _fee,
-        bool _isActive
-    ) external onlyOwner {
-        contractsData[_contractAddress] = ContractInfo({
-            fee: _fee,
-            isActive: _isActive,
-            registredAt: block.timestamp
-        });
+    function addNewContract(address _contractAddress, uint256 _fee, bool _isActive) external onlyOwner {
+        contractsData[_contractAddress] = ContractInfo({fee: _fee, isActive: _isActive, registredAt: block.timestamp});
 
-        emit NewContractAdded(
-            _contractAddress,
-            _fee,
-            _isActive,
-            block.timestamp
-        );
+        emit NewContractAdded(_contractAddress, _fee, _isActive, block.timestamp);
     }
 
-    function updateFee(
-        address _contractAddress,
-        uint256 _newFee
-    ) external onlyOwner {
+    function updateFee(address _contractAddress, uint256 _newFee) external onlyOwner {
         require(contractsData[_contractAddress].registredAt > 0, ContractDoesNotRegistred());
         uint256 _oldFee = contractsData[_contractAddress].fee;
         contractsData[_contractAddress].fee = _newFee;
 
-        emit ContractFeeUpdated(
-            _contractAddress,
-            _oldFee,
-            _newFee,
-            block.timestamp
-        );
+        emit ContractFeeUpdated(_contractAddress, _oldFee, _newFee, block.timestamp);
     }
 
     function deactivate(address _address) external onlyOwner {

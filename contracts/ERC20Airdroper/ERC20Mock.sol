@@ -6,12 +6,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract ERC20Mock is ERC20, ERC20Permit {
-    constructor(address recipient)
-        ERC20("MyToken", "MTK")
-        ERC20Permit("MyToken")
-    {
+    constructor(address recipient) ERC20("MyToken", "MTK") ERC20Permit("MyToken") {
         _mint(recipient, 10000 * 10 ** decimals());
     }
 }
 
-//balanceOf :  10000000000000000000000  
+//balanceOf :  10000000000000000000000
